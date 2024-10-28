@@ -1,31 +1,33 @@
+from collections import defaultdict
+
 N = int(input())
-
-center = None
-
-def update_center(p):
-    global center
-    if center is None:
-        center = p
-    else:
-        center = ((center[0] + p[0])/2, (center[1] + p[1])/2)
-
-
-def sqr_dist_from_c(p):
-    return (center[0] - p[0])**2 + (center[1] - p[1])**2
-
 
 cds = [tuple([*map(int, input().split()), i]) for i in range(N)]
 
-for p in cds:
-    update_center(p)
+# distmap = defaultdict(dict)
+distmap = defaultdict(list)
 
-dists = list(map(sqr_dist_from_c, cds))
+def sqr_dist(p1, p2):
+    return (p1[0] - p2[0])**2 + (p1[1] - p2[1])**2
 
-zipped = list(zip(dists, cds))
+for i in range(N):
+    for j in range(i+1, N):
+        dist = sqr_dist(cds[i], cds[j])
+        distmap[i].append((j, dist))
+        distmap[j].append((i, dist))
 
-zipped.sort(key=lambda x: x[0])
+for key in distmap.values():
+    key.sort(key=lambda k:k[1])
 
-grouped = zip(zipped[0::3], zipped[1::3], zipped[2::3])
+selected = dict()
 
-for group in grouped:
-    print(" ".join(str(x[1][2]) for x in group))
+for i in range(N):
+    if selected.get(i):
+        continue
+    selected[i] = 1
+
+
+
+
+print(distmap)
+

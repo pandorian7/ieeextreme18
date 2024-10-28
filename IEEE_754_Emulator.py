@@ -1,138 +1,81 @@
-import math
+import sys
+import struct
 
-bin_str = dict()
-vals = dict()
+def hex_to_float(hex_str):
+    """Convert a hexadecimal string to a floating-point number."""
+    return struct.unpack('!f', bytes.fromhex(hex_str))[0]
 
-def binary_mantissa_to_fraction(mantissa):
-    # Initial value for integer part of binary '1.'
-    fraction_value = 1.0
+def float_to_hex(float_num):
+    """Convert a floating-point number to a hexadecimal string."""
+    return hex(struct.unpack('<I', struct.pack('<f', float_num))[0])[2:].zfill(8)
+
+def nand_operation(a, b):
+    """Perform NAND operation on two integers."""
+    a = int(float_to_hex(a), 16)
+    b = int(float_to_hex(b), 16)
+    ret = ~(a & b) & 0xFFFFFFFF
+    return hex_to_float(hex(ret)[2:].zfill(8))
+
+def fused_multiply_add(a, b, c):
+    """Perform fused multiply-add operation: (a * b) + c."""
+    return a * b + c
+
+def read_input():
+    """Read input from standard input."""
+    return sys.stdin.read().splitlines()
+
+def process_commands(data):
+    """Process the commands and return results."""
+    index = 0
+    test_cases = int(data[index])  # Number of test cases
+    index += 1
+    output_results = []
     
-    # Convert binary fraction part after '1.'
-    for i, bit in enumerate(mantissa, start=1):
-        if bit == '1':
-            fraction_value += 1 / (2 ** i)
+    for _ in range(test_cases):
+        initial_hex = data[index].strip()
+        computations = [hex_to_float(initial_hex)]  # Initialize computations list
+        index += 1
+        
+        lut_count = int(data[index])  # Number of LUTs
+        index += 1
+        
+        look_up_tables = []
+        for __ in range(lut_count):
+            lut_info = data[index].strip().split()
+            lut_values = [hex_to_float(v) for v in lut_info[1:]]  # Convert LUT hex values to floats
+            look_up_tables.append(lut_values)
+            index += 1
+        
+        query_count = int(data[index])  # Number of queries
+        index += 1
+        
+        for __ in range(query_count):
+            command = data[index].strip().split()
+            if command[0] == 'L':
+                i, j, b = int(command[1]), int(command[2]), int(command[3])
+                mask = (int(initial_hex, 16) >> j) & ((1 << b) - 1)
+                computations.append(look_up_tables[i][mask])  # Append result from LUT
+            elif command[0] == 'N':
+                i, j = int(command[1]), int(command[2])
+                result = nand_operation(computations[i], computations[j])
+                computations.append(result)  # Append NAND result
+            elif command[0] == 'F':
+                i, j, k = int(command[1]), int(command[2]), int(command[3])
+                result = fused_multiply_add(computations[i], computations[j], computations[k])
+                computations.append(result)  # Append FMA result
+            elif command[0] == 'C':
+                hex_value = command[1]
+                computations.append(hex_to_float(hex_value))  # Append converted hex float
+            index += 1
+        
+        output_results.append(float_to_hex(computations[-1]))  # Append final result as hex
     
-    return fraction_value
+    return output_results
 
+def main():
+    input_data = read_input()  # Read input
+    results = process_commands(input_data)  # Process commands and get results
+    print("\n".join(results))  # Print results for all test cases
 
-def fraction_to_binary_mantissa(fraction, precision=23):
-    """
-    Convert a decimal fraction to a binary mantissa string.
-    
-    Args:
-        fraction (float): The fractional decimal number to convert.
-        precision (int): Number of binary places to calculate (default 10).
-    
-    Returns:
-        str: Binary representation of the fraction part as a mantissa.
-    """
-    binary_mantissa = []
-    for _ in range(precision):
-        fraction *= 2
-        bit = int(fraction)  # Extract the integer part (0 or 1)
-        binary_mantissa.append(str(bit))
-        fraction -= bit  # Remove the integer part, keeping only the fraction
-    
-        if fraction == 0:
-            break  # Stop if fraction becomes zero
-    
-    return ''.join(binary_mantissa)
-
-
-def get_bin(val):
-    sign = "0" if val>0 else "1"
-    if val <0:
-        val *= -1
-    expo_val = int(math.log2(val))
-    expo = format(expo_val+127, "08b")
-    val /= 2**expo_val
-    val -= 1
-    mantissa = fraction_to_binary_mantissa(val).rjust(23,"0")
-    return format(int(sign+expo+mantissa, base=2), "08x")
-
-
-def get_decimal(val):
-    decimal_val = int(val, base=16)
-    bin_val = format(decimal_val, '032b')
-    bin_str[val] = bin_val
-    
-    sign = bin_val[0]
-    expo = bin_val[1:9]
-    mantissa = bin_val[9:]
-    # print(sign, expo, mantissa)
-# 
-    sign_val = 1 if sign=="0" else -1
-
-    ret = sign_val*binary_mantissa_to_fraction(mantissa) * 2**(int(expo, 2)-127)
-    vals[val] = ret
-    return ret
-
-def hex_to_binary(hex_str):
-    """Convert a hexadecimal string to a binary string."""
-    # Convert hex to int, then to binary, removing the '0b' prefix
-    return bin(int(hex_str, 16))[2:]
-
-def binary_to_hex(bin_str):
-    """Convert a binary string to a hexadecimal string."""
-    # Convert binary to int, then to hex, removing the '0x' prefix
-    return hex(int(bin_str, 2))[2:].upper()  # Return uppercase hex
-
-def nand_hex_strings(hex_str1, hex_str2):
-    """Calculate the NAND of two hexadecimal string values of the same length."""
-    # Convert hex strings to binary
-    bin_str1 = hex_to_binary(hex_str1)
-    bin_str2 = hex_to_binary(hex_str2)
-
-    # Perform the NAND operation
-    result = []
-    for b1, b2 in zip(bin_str1.zfill(len(hex_str1) * 4), bin_str2.zfill(len(hex_str2) * 4)):
-        # Convert characters to integers, perform NAND, and append result
-        nand_bit = '1' if not (b1 == '1' and b2 == '1') else '0'
-        result.append(nand_bit)
-
-    # Convert the result binary string back to hex
-    result_bin_str = ''.join(result)
-
-    # Convert the binary result to hexadecimal and return
-    return binary_to_hex(result_bin_str)
-
-# Example usage
- # Expected output: Hex representation of the NAND result
-
-
-def testcase():
-    C = [input()] 
-    L = int(input())
-    get_decimal(C[-1])
-    if (L):
-        raise Exception('UHH')
-    Q = int(input())
-    for _ in range(Q):
-        comm, *args = input().split()
-        if comm == "C":
-            C.append(args[0])
-            get_decimal(C[-1])
-        if comm == "F":
-            i, j, k = map(int, args)
-            vi = get_decimal(C[i])
-            vj = get_decimal(C[j])
-            vk = get_decimal(C[k])
-            C.append(get_bin(vi*vj+vk))
-            get_decimal(C[-1])
-        if comm == "N":
-            i, j = map(int, args)
-            C.append(nand_hex_strings(C[i], C[j]))
-
-
-
-    print(C[-1].lower())
-    
-T = int(input())
-
-for _ in range(T):
-    testcase()
-
-# print(nand_hex_strings("BF800000", "40800000"))
-
-# print(get_decimal("40800000"))
-
+if __name__ == "__main__":
+    main()

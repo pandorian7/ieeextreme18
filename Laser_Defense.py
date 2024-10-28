@@ -34,9 +34,27 @@ for i in range(M):
     
 count = (N+1) * (M+1)
 
+def find_max_index_leq(nums, target: int) -> int:
+    left, right = 0, len(nums) - 1
+    result = -1
+
+    while left <= right:
+        mid = (left + right) // 2
+        if nums[mid] < target:
+            result = mid  # update the result with the current index
+            left = mid + 1  # search in the right half to find a larger value within the limit
+        else:
+            right = mid - 1  # search in the left half
+
+    return result
+
+B_U.sort()
+
 for Ai in A_U:
     non_crossing = filter(lambda Bi: Bi>=Ai, B_U)
-    count -= len(list(non_crossing))
+    # print(len(list(non_crossing)), find_max_index_leq(B_U, Ai) + 1)
+    count -= find_max_index_leq(B_U, Ai) + 1
+    # count -= len(list(non_crossing))
 
 print(count)
 
